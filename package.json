@@ -1,0 +1,26 @@
+{
+  "name": "tinymidipcm",
+  "version": "1.0.0",
+  "description": "render MIDIs to PCM with custom soundfonts via tinysoundfont in WASM",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/misterhat/tinymidipcm.git"
+  },
+  "keywords": [
+    "midi",
+    "tinysoundfont",
+    "pcm",
+    "render",
+    "soundfont"
+  ],
+  "author": "Zorian Medwid <misterhat144@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/misterhat/tinymidipcm/issues"
+  },
+  "homepage": "https://github.com/misterhat/tinymidipcm#readme"
+}

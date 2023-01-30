@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>tinymidipcm</title>
+    </head>
+    <body>
+        <script src="https://unpkg.com/pcm-player"></script>
+
+        <script type="module">
+            import TinyMidiPCM from './index.js';
+
+            (async () => {
+                const tinyMidiPCM = new TinyMidiPCM();
+                await tinyMidiPCM.init();
+
+                const soundfontRes = await fetch('/gm.sf2');
+                const soundfontBuffer = new Uint8Array(
+                    await soundfontRes.arrayBuffer()
+                );
+
+                tinyMidiPCM.setSoundfont(soundfontBuffer);
+
+                const midiRes = await fetch('/runescape-flute salad.mid');
+                const midiBuffer = new Uint8Array(await midiRes.arrayBuffer());
+
+                const pcm = tinyMidiPCM.render(midiBuffer);
+
+                const context = new AudioContext();
+
+                const player = new PCMPlayer({
+                    inputCodec: 'Int16',
+                    channels: 2,
+                    sampleRate: 22050
+                });
+
+                player.volume(1);
+
+                window.onclick = () => {
+                    player.feed(pcm.buffer);
+                };
+            })();
+        </script>
+    </body>
+</html>
