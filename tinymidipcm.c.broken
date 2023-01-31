@@ -9,18 +9,22 @@
 #include "tml.h"
 
 // TODO customisable
-//#define SAMPLE_RATE 22050
-#define SAMPLE_RATE 44100
-#define CHANNELS 1
+#define SAMPLE_RATE 22050
 
-tml_message *midi_render_short(tsf *soundfont, tml_message *midi_message,
-                               int channels, int sample_rate,
-                               uint8_t *buffer, int pcm_length, double *msecs) {
-    int block_size = TSF_RENDER_EFFECTSAMPLEBLOCK;
+tml_message *tinymidipcm_render_pcm(tsf *soundfont,
+                                    tml_message *midi_message,
+                                    uint8_t *pcm_buffer, int samples,
+                                    double *msecs) {
+    /*tsf *soundfont = tsf_load_memory(soundfont_buffer, soundfont_length);
+    tsf_set_output(soundfont, TSF_STEREO_INTERLEAVED, 22050, 0.0f);
+    tml_message *midi_message = tml_load_memory(midi_buffer, midi_length);*/
+
     int bytes_written = 0;
 
+    int block_size = TSF_RENDER_EFFECTSAMPLEBLOCK;
+
     do {
-        *msecs += block_size * (1000.0 / (float)sample_rate);
+        *msecs += block_size * (1000.0 / SAMPLE_RATE);
 
         while (midi_message && *msecs >= midi_message->time) {
             switch (midi_message->type) {
@@ -52,61 +56,58 @@ tml_message *midi_render_short(tsf *soundfont, tml_message *midi_message,
             midi_message = midi_message->next;
         }
 
-        tsf_render_short(soundfont, (int16_t *)(buffer + bytes_written),
-                         block_size, 0);
+        /*if (bytes_written + (block_size * 4) >= *pcm_length || !midi_message) {
+            *pcm_length = bytes_written;
+            printf("hmm\n");
+            return midi_message;
+        }*/
 
-        bytes_written += block_size * 2 * channels;
-    } while (bytes_written < pcm_length);
+        tsf_render_short(
+            soundfont,
+            (int16_t *)(pcm_buffer + bytes_written),
+            block_size, 0);
+
+        printf("test\n");
+
+        bytes_written += block_size * 4;
+    } while (bytes_written < samples);
 
     return midi_message;
 }
 
-#if 0
 int main(int argc, char **argv) {
-#if 1
     int soundfont_length = 3367466;
-    FILE *soundfont_file = fopen("./rlndgm.sf2", "r");
-#else
-    int soundfont_length = 1011344;
-    FILE *soundfont_file = fopen("./LttPSF2.sf2", "r");
-#endif
+    FILE *soundfont_file = fopen("./gm.sf2", "r");
     uint8_t *soundfont_buffer = malloc(soundfont_length);
     fread(soundfont_buffer, soundfont_length, 1, soundfont_file);
     fclose(soundfont_file);
 
-    /*int midi_length = 17704;
-    FILE *midi_file = fopen("./runescape-flute salad.mid", "r");*/
-    /*int midi_length = 17157;
-    FILE *midi_file = fopen("./oot_opening.mid", "r");*/
-    int midi_length = 40039;
-    FILE *midi_file = fopen("./runescape-book of spells.mid", "r");
+    int midi_length = 17704;
+    FILE *midi_file = fopen("./runescape-flute salad.mid", "r");
     uint8_t *midi_buffer = malloc(midi_length);
     fread(midi_buffer, midi_length, 1, midi_file);
     fclose(midi_file);
 
     tsf *soundfont = tsf_load_memory(soundfont_buffer, soundfont_length);
-    //tsf_set_output(soundfont, TSF_STEREO_INTERLEAVED, SAMPLE_RATE, 0.0f);
-    tsf_set_output(soundfont, TSF_MONO, SAMPLE_RATE, 0.0f);
+    tsf_set_output(soundfont, TSF_STEREO_INTERLEAVED, 22050, 0.0f);
 
     tml_message *midi_message = tml_load_memory(midi_buffer, midi_length);
 
     double msecs = 0;
-    uint8_t pcm_buffer[1024 * 1024] = {0};
+    int samples = TSF_RENDER_EFFECTSAMPLEBLOCK * 10;
+    uint8_t pcm_buffer[TSF_RENDER_EFFECTSAMPLEBLOCK * 10 * 2] = {0};
 
     FILE *test = fopen("./out.pcm", "a+");
 
-    int samples = 1024;
-
     do {
+
         printf("---\n");
-        midi_message = midi_render_short(soundfont, midi_message,
-                                        CHANNELS, SAMPLE_RATE,
-									     pcm_buffer, samples, &msecs);
+        midi_message = tinymidipcm_render_pcm(soundfont, midi_message,
+                                              pcm_buffer, samples, &msecs);
         printf("---\n");
 
-        fwrite(pcm_buffer, samples, 1, test);
+        fwrite(pcm_buffer, samples * 2, 1, test);
     } while (midi_message != NULL);
 
-    // printf("%d %d\n", last_message, pcm_length);
+    //printf("%d %d\n", last_message, pcm_length);
 }
-#endif

@@ -14,6 +14,7 @@
                 await tinyMidiPCM.init();
 
                 const soundfontRes = await fetch('/gm.sf2');
+
                 const soundfontBuffer = new Uint8Array(
                     await soundfontRes.arrayBuffer()
                 );
@@ -23,20 +24,32 @@
                 const midiRes = await fetch('/runescape-flute salad.mid');
                 const midiBuffer = new Uint8Array(await midiRes.arrayBuffer());
 
-                const pcm = tinyMidiPCM.render(midiBuffer);
-
-                const context = new AudioContext();
-
-                const player = new PCMPlayer({
-                    inputCodec: 'Int16',
-                    channels: 2,
-                    sampleRate: 22050
-                });
-
-                player.volume(1);
-
                 window.onclick = () => {
-                    player.feed(pcm.buffer);
+                    /*const player = new PCMPlayer({
+                        inputCodec: 'Int16',
+                        channels: 2,
+                        sampleRate: 44100,
+                        onended: () => {
+                            console.log('hi');
+                        },
+                        flushTime: 5000,
+                    });
+
+                    //player.volume(1);*/
+
+                    const ctx = new AudioContext();
+
+                    // to control output volume
+                    const gain = ctx.createGain();
+                    gain.gain.value = 0.01;
+                    gain.connect(ctx.destination);
+
+                    const buffer = ctx.createBuffer(2, 1024 * 10, 44100);
+
+                    tinyMidiPCM.render(midiBuffer, (test) => {
+                        console.log(test);
+                    });
+
                 };
             })();
         </script>

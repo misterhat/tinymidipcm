@@ -258,7 +258,7 @@ TSFDEF float tsf_channel_get_tuning(tsf* f, int channel);
 // Increasing the value significantly lowers the CPU usage of the voice rendering.
 // If LFO affects the low-pass filter it can be hearable even as low as 8.
 #ifndef TSF_RENDER_EFFECTSAMPLEBLOCK
-#define TSF_RENDER_EFFECTSAMPLEBLOCK 64
+#define TSF_RENDER_EFFECTSAMPLEBLOCK 8
 #endif
 
 // When using tsf_render_short, to do the conversion a buffer of a fixed size is
