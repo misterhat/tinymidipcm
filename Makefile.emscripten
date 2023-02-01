@@ -2,7 +2,7 @@ CC = emcc
 SRC = $(wildcard *.c)
 CFLAGS = -Wall -O2
 LDFLAGS = -s EXPORT_ES6=1 -s MODULARIZE=1 -s EXPORT_NAME=loadTinyMidiPCM
-LDFLAGS += -s EXPORTED_FUNCTIONS="[_tsf_load_memory,_tsf_set_output,_tml_load_memory,_midi_render_short,_malloc,_realloc,_free]"
+LDFLAGS += -s EXPORTED_FUNCTIONS="[_tsf_load_memory,_tsf_set_output,_tml_load_memory,_midi_render,_malloc,_realloc,_free]"
 LDFLAGS += -s EXPORTED_RUNTIME_METHODS="[setValue,getValue]"
 LDFLAGS += -s ALLOW_MEMORY_GROWTH=1
 OBJ = $(SRC:.c=.o)

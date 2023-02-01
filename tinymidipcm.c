@@ -9,11 +9,10 @@
 #include "tml.h"
 
 // TODO customisable
-//#define SAMPLE_RATE 22050
 #define SAMPLE_RATE 44100
 #define CHANNELS 1
 
-tml_message *midi_render_short(tsf *soundfont, tml_message *midi_message,
+tml_message *midi_render(tsf *soundfont, tml_message *midi_message,
                                int channels, int sample_rate,
                                uint8_t *buffer, int pcm_length, double *msecs) {
     int block_size = TSF_RENDER_EFFECTSAMPLEBLOCK;
@@ -52,16 +51,18 @@ tml_message *midi_render_short(tsf *soundfont, tml_message *midi_message,
             midi_message = midi_message->next;
         }
 
-        tsf_render_short(soundfont, (int16_t *)(buffer + bytes_written),
+        /*tsf_render_short(soundfont, (int16_t *)(buffer + bytes_written),
+                         block_size, 0);*/
+        tsf_render_float(soundfont, (float *)(buffer + bytes_written),
                          block_size, 0);
 
-        bytes_written += block_size * 2 * channels;
+        bytes_written += block_size * 4 * channels;
     } while (bytes_written < pcm_length);
 
     return midi_message;
 }
 
-#if 0
+#if 1
 int main(int argc, char **argv) {
 #if 1
     int soundfont_length = 3367466;
@@ -74,12 +75,12 @@ int main(int argc, char **argv) {
     fread(soundfont_buffer, soundfont_length, 1, soundfont_file);
     fclose(soundfont_file);
 
-    /*int midi_length = 17704;
-    FILE *midi_file = fopen("./runescape-flute salad.mid", "r");*/
+    int midi_length = 17704;
+    FILE *midi_file = fopen("./runescape-flute salad.mid", "r");
     /*int midi_length = 17157;
     FILE *midi_file = fopen("./oot_opening.mid", "r");*/
-    int midi_length = 40039;
-    FILE *midi_file = fopen("./runescape-book of spells.mid", "r");
+    /*int midi_length = 40039;
+    FILE *midi_file = fopen("./runescape-book of spells.mid", "r");*/
     uint8_t *midi_buffer = malloc(midi_length);
     fread(midi_buffer, midi_length, 1, midi_file);
     fclose(midi_file);
@@ -95,16 +96,18 @@ int main(int argc, char **argv) {
 
     FILE *test = fopen("./out.pcm", "a+");
 
-    int samples = 1024;
+    //int samples = 1024;
+    int samples = 4*SAMPLE_RATE*CHANNELS;
 
     do {
         printf("---\n");
-        midi_message = midi_render_short(soundfont, midi_message,
-                                        CHANNELS, SAMPLE_RATE,
-									     pcm_buffer, samples, &msecs);
+        midi_message = midi_render(soundfont, midi_message,
+                                    CHANNELS, SAMPLE_RATE,
+                                     pcm_buffer, samples, &msecs);
         printf("---\n");
 
         fwrite(pcm_buffer, samples, 1, test);
+        break;
     } while (midi_message != NULL);
 
     // printf("%d %d\n", last_message, pcm_length);

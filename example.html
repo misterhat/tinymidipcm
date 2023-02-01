@@ -6,11 +6,17 @@
     <body>
         <script src="https://unpkg.com/pcm-player"></script>
 
+        <script src="/webaudio-test.js"></script>
+
         <script type="module">
             import TinyMidiPCM from './index.js';
 
             (async () => {
-                const tinyMidiPCM = new TinyMidiPCM();
+                const tinyMidiPCM = new TinyMidiPCM({
+                    renderInterval: 800,
+                });
+
+                tinyMidiPCM.setBufferDuration(2);
                 await tinyMidiPCM.init();
 
                 const soundfontRes = await fetch('/gm.sf2');
@@ -25,31 +31,23 @@
                 const midiBuffer = new Uint8Array(await midiRes.arrayBuffer());
 
                 window.onclick = () => {
-                    /*const player = new PCMPlayer({
-                        inputCodec: 'Int16',
+                    const player = new PCMPlayer({
+                        inputCodec: 'Float32',
                         channels: 2,
                         sampleRate: 44100,
                         onended: () => {
-                            console.log('hi');
+                            console.log('end', player.audioCtx);
                         },
-                        flushTime: 5000,
+                        onstatechange: (test) => {
+                            console.log(test);
+                        },
+                        flushTime: 1000,
                     });
-
-                    //player.volume(1);*/
-
-                    const ctx = new AudioContext();
-
-                    // to control output volume
-                    const gain = ctx.createGain();
-                    gain.gain.value = 0.01;
-                    gain.connect(ctx.destination);
-
-                    const buffer = ctx.createBuffer(2, 1024 * 10, 44100);
 
                     tinyMidiPCM.render(midiBuffer, (test) => {
                         console.log(test);
+                        player.feed(test);
                     });
-
                 };
             })();
         </script>

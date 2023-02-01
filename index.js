@@ -38,6 +38,11 @@ class TinyMidiPCM {
         this.msecsPtr = this.wasmModule._malloc(8);
     }
 
+    // set buffer size based on seconds
+    setBufferDuration(seconds) {
+        this.bufferSize = 4 * this.sampleRate * this.channels * seconds;
+    }
+
     ensureInitialized() {
         if (!this.wasmModule) {
             throw new Error(
@@ -68,6 +73,19 @@ class TinyMidiPCM {
         );
     }
 
+    getPCMBuffer() {
+        this.ensureInitialized();
+
+        const {HEAPU8} = this.wasmModule;
+
+        const pcm = new Uint8Array(this.bufferSize);
+
+        pcm.set(HEAPU8.subarray(this.pcmBufferPtr, this.pcmBufferPtr +
+                                this.bufferSize));
+
+        return pcm;
+    }
+
     getMIDIMessagePtr(midiBuffer) {
         const { _malloc, _free, _tml_load_memory, HEAPU8 } = this.wasmModule;
 
@@ -80,66 +98,44 @@ class TinyMidiPCM {
     }
 
     renderMIDIMessage(midiMessagePtr) {
-        const { _midi_render_short } = this.wasmModule;
+        const { _midi_render } = this.wasmModule;
 
-        return _midi_render_short(this.soundfontPtr, midiMessagePtr, this.channels,
+        return _midi_render(this.soundfontPtr, midiMessagePtr, this.channels,
             this.sampleRate, this.pcmBufferPtr, this.bufferSize, this.msecsPtr);
     }
 
-    render(midiBuffer, onPCMData) {
+    render(midiBuffer, onPCMData, onDone) {
         this.ensureInitialized();
 
         if (!this.soundfontPtr) {
             throw new Error('no soundfont buffer set. call .setSoundfont');
         }
 
-        const { setValue, HEAPU8, } = this.wasmModule;
+        const { setValue, getValue } = this.wasmModule;
 
         setValue(this.msecsPtr, 0, 'double');
 
         let midiMessagePtr = this.getMIDIMessagePtr(midiBuffer);
 
-        let i = 0;
-
         const boundRender = function () {
             midiMessagePtr = this.renderMIDIMessage(midiMessagePtr);
 
-            const pcm = (HEAPU8.subarray(this.pcmBufferPtr, this.pcmBufferPtr +
-                        this.bufferSize));
-
-            console.log(i);
+            const pcm = this.getPCMBuffer();
 
             onPCMData(pcm);
 
-            if (i < 50 && midiMessagePtr) {
+            if (midiMessagePtr) {
                 setTimeout(boundRender, this.renderInterval);
-            }
+            } else {
+                console.log('finished msecs', getValue(this.msecsPtr, 'double'));
 
-            i++;
+                if (onDone) {
+                    onDone();
+                }
+            }
         }.bind(this);
 
         boundRender();
-
-        /*
-        let i = 0;
-        const test = new Uint8Array(this.bufferSize * 50);
-
-        do {
-            midiMessagePtr
-                = this.renderMIDIMessage(midiMessagePtr);
-
-            const pcm = (HEAPU8.subarray(this.pcmBufferPtr, this.pcmBufferPtr +
-                        this.bufferSize));
-
-            test.set(pcm, i * (this.bufferSize));
-            i++;
-
-            if (i >= 50) {
-                break;
-            }
-        } while (midiMessagePtr);
-
-        onPCMData(test);*/
     }
 }
 
