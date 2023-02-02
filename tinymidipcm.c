@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 #define TSF_IMPLEMENTATION
@@ -7,10 +6,6 @@
 
 #define TML_IMPLEMENTATION
 #include "tml.h"
-
-// TODO customisable
-#define SAMPLE_RATE 44100
-#define CHANNELS 1
 
 tml_message *midi_render(tsf *soundfont, tml_message *midi_message,
                                int channels, int sample_rate,
@@ -52,7 +47,10 @@ tml_message *midi_render(tsf *soundfont, tml_message *midi_message,
         }
 
         /*tsf_render_short(soundfont, (int16_t *)(buffer + bytes_written),
-                         block_size, 0);*/
+                         block_size, 0);
+
+        bytes_written += block_size * 2 * channels;*/
+
         tsf_render_float(soundfont, (float *)(buffer + bytes_written),
                          block_size, 0);
 
@@ -62,54 +60,47 @@ tml_message *midi_render(tsf *soundfont, tml_message *midi_message,
     return midi_message;
 }
 
-#if 1
+#if 0
+#include <stdio.h>
+
+#define SAMPLE_RATE 44100
+#define CHANNELS 2
+
 int main(int argc, char **argv) {
-#if 1
-    int soundfont_length = 3367466;
-    FILE *soundfont_file = fopen("./rlndgm.sf2", "r");
-#else
-    int soundfont_length = 1011344;
-    FILE *soundfont_file = fopen("./LttPSF2.sf2", "r");
-#endif
+    int soundfont_length = 3281786;
+    FILE *soundfont_file = fopen("./scc1t2.sf2", "r");
+
     uint8_t *soundfont_buffer = malloc(soundfont_length);
     fread(soundfont_buffer, soundfont_length, 1, soundfont_file);
     fclose(soundfont_file);
 
-    int midi_length = 17704;
-    FILE *midi_file = fopen("./runescape-flute salad.mid", "r");
-    /*int midi_length = 17157;
-    FILE *midi_file = fopen("./oot_opening.mid", "r");*/
-    /*int midi_length = 40039;
-    FILE *midi_file = fopen("./runescape-book of spells.mid", "r");*/
+    int midi_length = 23708;
+    FILE *midi_file = fopen("./e1m1.mid", "r");
     uint8_t *midi_buffer = malloc(midi_length);
     fread(midi_buffer, midi_length, 1, midi_file);
     fclose(midi_file);
 
     tsf *soundfont = tsf_load_memory(soundfont_buffer, soundfont_length);
-    //tsf_set_output(soundfont, TSF_STEREO_INTERLEAVED, SAMPLE_RATE, 0.0f);
-    tsf_set_output(soundfont, TSF_MONO, SAMPLE_RATE, 0.0f);
+    tsf_set_output(soundfont, TSF_STEREO_INTERLEAVED, SAMPLE_RATE, 0.0f);
+    //tsf_set_output(soundfont, TSF_MONO, SAMPLE_RATE, 0.0f);
 
     tml_message *midi_message = tml_load_memory(midi_buffer, midi_length);
 
     double msecs = 0;
-    uint8_t pcm_buffer[1024 * 1024] = {0};
-
     FILE *test = fopen("./out.pcm", "a+");
 
-    //int samples = 1024;
     int samples = 4*SAMPLE_RATE*CHANNELS;
+    uint8_t *pcm_buffer = malloc(samples);
+
 
     do {
-        printf("---\n");
         midi_message = midi_render(soundfont, midi_message,
                                     CHANNELS, SAMPLE_RATE,
                                      pcm_buffer, samples, &msecs);
-        printf("---\n");
 
         fwrite(pcm_buffer, samples, 1, test);
-        break;
     } while (midi_message != NULL);
 
-    // printf("%d %d\n", last_message, pcm_length);
+    // cat out.pcm | aplay -c2 -f FLOAT_LE -r 44100
 }
 #endif

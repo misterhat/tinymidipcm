@@ -9,12 +9,24 @@ class TinyMidiPCM {
 
         this.midiBufferPtr = 0;
 
-        this.bufferSize = options.bufferSize || 1024 * 10; // 100 kb
         this.renderInterval = options.renderInterval || 100;
 
         this.sampleRate = options.sampleRate || 44100;
         this.channels = options.channels || 2;
         this.gain = options.gain || 0;
+
+        if (!options.bufferSize) {
+            this.setBufferDuration(1);
+        } else {
+            this.bufferSize = options.bufferSize;
+        }
+
+        this.onPCMData = options.onPCMData || (() => {});
+        this.onRenderEnd = options.onRenderEnd || (() => {});
+
+        this.renderTimer = undefined;
+
+        this.test = 0;
     }
 
     async init() {
@@ -54,16 +66,18 @@ class TinyMidiPCM {
     setSoundfont(buffer) {
         this.ensureInitialized();
 
-        const { _malloc, _free, _tsf_load_memory, _tsf_set_output, HEAPU8 } =
+        const { _malloc, _free, _tsf_load_memory, _tsf_set_output } =
             this.wasmModule;
 
         _free(this.soundfontBufferPtr);
 
         this.soundfontBufferPtr = _malloc(buffer.length);
-        HEAPU8.set(buffer, this.soundfontBufferPtr);
+        this.wasmModule.HEAPU8.set(buffer, this.soundfontBufferPtr);
 
-        this.soundfontPtr = _tsf_load_memory(this.soundfontBufferPtr,
-                                            buffer.length);
+        this.soundfontPtr = _tsf_load_memory(
+            this.soundfontBufferPtr,
+            buffer.length
+        );
 
         _tsf_set_output(
             this.soundfontPtr,
@@ -76,23 +90,25 @@ class TinyMidiPCM {
     getPCMBuffer() {
         this.ensureInitialized();
 
-        const {HEAPU8} = this.wasmModule;
-
         const pcm = new Uint8Array(this.bufferSize);
 
-        pcm.set(HEAPU8.subarray(this.pcmBufferPtr, this.pcmBufferPtr +
-                                this.bufferSize));
+        pcm.set(
+            this.wasmModule.HEAPU8.subarray(
+                this.pcmBufferPtr,
+                this.pcmBufferPtr + this.bufferSize
+            )
+        );
 
         return pcm;
     }
 
     getMIDIMessagePtr(midiBuffer) {
-        const { _malloc, _free, _tml_load_memory, HEAPU8 } = this.wasmModule;
+        const { _malloc, _free, _tml_load_memory } = this.wasmModule;
 
         _free(this.midiBufferPtr);
 
         this.midiBufferPtr = _malloc(midiBuffer.length);
-        HEAPU8.set(midiBuffer, this.midiBufferPtr);
+        this.wasmModule.HEAPU8.set(midiBuffer, this.midiBufferPtr);
 
         return _tml_load_memory(this.midiBufferPtr, midiBuffer.length);
     }
@@ -100,20 +116,33 @@ class TinyMidiPCM {
     renderMIDIMessage(midiMessagePtr) {
         const { _midi_render } = this.wasmModule;
 
-        return _midi_render(this.soundfontPtr, midiMessagePtr, this.channels,
-            this.sampleRate, this.pcmBufferPtr, this.bufferSize, this.msecsPtr);
+        return _midi_render(
+            this.soundfontPtr,
+            midiMessagePtr,
+            this.channels,
+            this.sampleRate,
+            this.pcmBufferPtr,
+            this.bufferSize,
+            this.msecsPtr
+        );
     }
 
-    render(midiBuffer, onPCMData, onDone) {
+    render(midiBuffer) {
         this.ensureInitialized();
 
         if (!this.soundfontPtr) {
             throw new Error('no soundfont buffer set. call .setSoundfont');
         }
 
-        const { setValue, getValue } = this.wasmModule;
+        window.clearTimeout(this.renderTimer);
+
+        const { setValue, getValue, _tsf_reset, _tsf_channel_set_bank_preset } =
+            this.wasmModule;
 
         setValue(this.msecsPtr, 0, 'double');
+
+        _tsf_reset(this.soundfontPtr);
+        _tsf_channel_set_bank_preset(this.soundfontPtr, 9, 128, 0);
 
         let midiMessagePtr = this.getMIDIMessagePtr(midiBuffer);
 
@@ -122,20 +151,18 @@ class TinyMidiPCM {
 
             const pcm = this.getPCMBuffer();
 
-            onPCMData(pcm);
+            this.onPCMData(pcm);
 
             if (midiMessagePtr) {
-                setTimeout(boundRender, this.renderInterval);
+                this.renderTimer = setTimeout(boundRender, this.renderInterval);
             } else {
-                console.log('finished msecs', getValue(this.msecsPtr, 'double'));
-
-                if (onDone) {
-                    onDone();
-                }
+                this.onRenderEnd(getValue(this.msecsPtr, 'double'));
             }
         }.bind(this);
 
-        boundRender();
+        this.renderTimer = setTimeout(() => {
+            boundRender();
+        }, 16);
     }
 }
 
